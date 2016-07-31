@@ -1,0 +1,167 @@
+---
+title: "Practical Machine Learning Prediction Assignment"
+author: "O. Despotovic"
+date: "July 31, 2016"
+output: html_document
+---
+
+#Practical Machine Learning Prediction Assignment
+
+##Executive Summary
+
+Using devices such as *Jawbone Up*, *Nike FuelBand*, and *Fitbit* we can collect a large amount of data about personal activity with relatively low cost. In this project we are using data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants which were asked to perform barbell lifts correctly and incorrectly in 5 different ways.  The goal of the project is to predict the manner in which our participants did the exercise. 
+
+Since we have many predictor variables we applied random forest model which is often used for non linear modeling and for its speed, although it can potentially lead to overfitting. Cleaning of the data included checking for missing data and inspecting of the variables, after which variables with missing data, index, respondent name, time stamp and similar variables were removed. Final model accuracy over validation dataset is very high - 99.39%, which resulted in excellent prediction results with testing dataset generating all 20 accurate predictions submitted in the Course Project Prediction Quiz. 
+
+##Data preparation and cleaning
+
+The first step is to download the data and load them into data frames. Data structure and summary, inspecting the class of the variables and checking for the missing data followed. (Part of the code is included in comment form due to the length of the assignment.)
+
+```{r}
+urlTrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+urlTest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+download.file(urlTrain, destfile="trainOriginal.csv")
+train <- read.csv("trainOriginal.csv", header=TRUE)
+
+download.file(urlTest, destfile="testOriginal.csv")
+test <- read.csv("testOriginal.csv", header=TRUE)
+
+#library(psych)
+
+#summary(train)
+#str(train)
+#describe(train)
+#head(train)
+
+```
+
+After initial inspecting "#DIV/0!" values were added to missing values:
+
+```{r}
+train <- read.csv("trainOriginal.csv", header=TRUE, na.strings = c("NA","#DIV/0!"))
+```
+
+Since many variables had predominantly missing values they were excluded. Indices variable, respondent name, time stamps and new and numeric window variables were also excluded after initial checkup.
+
+```{r}
+trainSelected <- train[ , colSums(is.na(train)) == 0]
+#head(trainSelected)
+#table(trainSelected$new_window,trainSelected$classe)/length(trainSelected$classe)
+#table(trainSelected$num_window)
+#plot(trainSelected$classe,trainSelected$num_window)
+trainSelected <- trainSelected[, -c(1:7)]
+```
+
+Remaining variables were forced to numeric type, apart from the output variable which remained a factor:
+
+```{r}
+numCol <- ncol(trainSelected)-1
+for(i in c(1:numCol)) {trainSelected[,i] = as.numeric(as.character(trainSelected[,i]))}
+#str(trainSelected)
+```
+
+##Partitioning train data set
+
+After loading *caret* and *randomForest* packages into current section, *train* data set was partitioned into training and validation data sets so we could perform model training and validation:
+
+```{r}
+library(caret)
+library(randomForest)
+
+set.seed(1235)
+inTrain <- createDataPartition(trainSelected$classe, p=.7, list=FALSE)
+trainingData <- trainSelected[inTrain,]
+validationData <- trainSelected[-inTrain,]
+```
+
+##Data preprocessing
+
+Prediction variables were preprocessed by centering and scaling (data in different variables were evidently in different scales):
+
+```{r}
+preProcValues <- preProcess(trainingData[,-c(53)], method = c("center", "scale"))
+
+trainingDataTransformed <- predict(preProcValues, trainingData)
+validationDataTransformed <- predict(preProcValues, validationData)
+```
+
+##Modeling
+
+To speed up model training we parallelised the processing with the *doParallel* package. Modeling was performed by defining *trainControl* parameters including using cross validation, and specifying *random forest* method. Training was done using all selected and preprocessed variables.
+
+```{r}
+library(parallel)
+library(doParallel)
+
+#Set up parallel clusters
+Cl <- makeCluster(detectCores() - 1)
+registerDoParallel(Cl)
+
+set.seed(321)
+modelControl <- trainControl(method='cv', number=10, classProbs=TRUE, allowParallel=TRUE)
+
+set.seed(321)
+model1 <- train(classe~., data=trainingDataTransformed, method='rf', trControl=modelControl)
+
+#Stoping the clusters
+stopCluster(Cl)
+
+model1
+```
+
+Evaluation of the model on the training data set using the confusionmatrix and accuracy, sensitivity & specificity metrics showed maximal value of these metrics:
+
+```{r}
+predicted <- predict(model1, trainingDataTransformed)
+confusionMatrix(predicted, trainingDataTransformed$classe)
+```
+
+Evaluation of the model on the validation data set using the confusionmatrix and accuracy, sensitivity & specificity metrics showed 99.3% accuracy (in other words very low expected out of sample error):
+
+```{r}
+predicted <- predict(model1, validationDataTransformed)
+confusionMatrix(predicted, validationDataTransformed$classe)
+```
+
+##Displaying the final model
+
+Finally we inspected the variable importance and estimated error rate which is less than 1%:
+
+```{r}
+varImp(model1)
+model1$finalModel
+```
+
+##Predicting the type of the respondents exercise on test data
+
+After inspecting and preprocessing the test data to adjust it based on transformations performed on training (and validation) data sets, we applied the final trained model to predict the class (type) of the respondents' exercise:
+
+```{r}
+#summary(test)
+#str(test)
+#describe(test)
+#head(test)
+
+#Keeping only the variables included in training set
+selectedVar <- names(test) %in% names(trainingDataTransformed)
+testData <- test[, selectedVar]
+
+#Preprocessing by centering and scaling
+testDataTransformed <- predict(preProcValues, testData)
+
+#Adding classe variable
+testDataTransformed$classe <- rep(NA, length(testDataTransformed[,1]))
+testDataTransformed$classe <- as.factor(testDataTransformed$classe)
+
+#Forcing predictors into numeric 
+numCol2 <- ncol(testDataTransformed)-1
+for(i in c(1:numCol2)) {testDataTransformed[,i] = as.numeric(as.character(testDataTransformed[,i]))}
+
+#str(testDataTransformed)
+#any(is.na(testDataTransformed[,-c(53)]))
+
+#predicted <- predict(model1, testDataTransformed)
+```
+
+Note: Final predictions of the type of the respondents exercise for 20 test cases were omitted in this report due to plagiarism warnings. 
