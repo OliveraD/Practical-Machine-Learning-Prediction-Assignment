@@ -1,3 +1,6 @@
+---
+output: pdf_document
+---
 Practical Machine Learning Prediction Assignment
 ================================================
 
