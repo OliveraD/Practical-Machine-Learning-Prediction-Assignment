@@ -2,7 +2,7 @@
 title: "Practical Machine Learning Prediction Assignment"
 author: "O. Despotovic"
 date: "July 31, 2016"
-output: html_document
+output: md_document
 ---
 
 #Practical Machine Learning Prediction Assignment
