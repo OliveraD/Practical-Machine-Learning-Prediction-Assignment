@@ -164,7 +164,7 @@ variables.
     ## The final value used for the model was mtry = 27.
 
 Evaluation of the model on the training data set using the
-confusionmatrix and accuracy, sensitivity & specificity metrics showed
+confusionmatrix and accuracy, sensitivity and specificity metrics showed
 maximal value of these metrics:
 
     predicted <- predict(model1, trainingDataTransformed)
