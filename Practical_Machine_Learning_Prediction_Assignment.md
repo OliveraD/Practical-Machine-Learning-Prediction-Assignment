@@ -203,8 +203,8 @@ maximal value of these metrics:
     ## Balanced Accuracy      1.0000   1.0000   1.0000   1.0000   1.0000
 
 Evaluation of the model on the validation data set using the
-confusionmatrix and accuracy, sensitivity & specificity metrics showed
-99.3% accuracy (in other words very low expected out of sample error):
+confusionmatrix and accuracy, sensitivity and specificity metrics showed
+99.4% accuracy (in other words very low expected out of sample error):
 
     predicted <- predict(model1, validationDataTransformed)
     confusionMatrix(predicted, validationDataTransformed$classe)
